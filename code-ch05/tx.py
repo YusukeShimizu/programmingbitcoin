@@ -41,8 +41,8 @@ class TxFetcher:
             else:
                 tx = Tx.parse(BytesIO(raw), testnet=testnet)
             if tx.id() != tx_id:  # <1>
-                raise ValueError('not the same id: {} vs {}'.format(tx.id(), 
-                                  tx_id))
+                raise ValueError('not the same id: {} vs {}'.format(tx.id(),
+                                                                    tx_id))
             cls.cache[tx_id] = tx
         cls.cache[tx_id].testnet = testnet
         return cls.cache[tx_id]
@@ -110,15 +110,25 @@ class Tx:
         '''
         # s.read(n) will return n bytes
         # version is an integer in 4 bytes, little-endian
+        version = little_endian_to_int(s.read(4))
         # num_inputs is a varint, use read_varint(s)
+        num_outputs = read_varint(s)
         # parse num_inputs number of TxIns
+        txins = []
+        for _ in range(num_outputs):
+            txins.append(TxIn.parse(s))
         # num_outputs is a varint, use read_varint(s)
+        num_outputs = read_varint(s)
         # parse num_outputs number of TxOuts
+        txouts = []
+        for _ in range(num_outputs):
+            txouts.append(TxOut.parse(s))
         # locktime is an integer in 4 bytes, little-endian
+        locktime = little_endian_to_int(s.read(4))
         # return an instance of the class (see __init__ for args)
-        raise NotImplementedError
-
+        return cls(version, txins, txouts, locktime, True)
     # tag::source6[]
+
     def serialize(self):
         '''Returns the byte serialization of the transaction'''
         result = int_to_little_endian(self.version, 4)
@@ -135,10 +145,16 @@ class Tx:
     def fee(self):
         '''Returns the fee of this transaction in satoshi'''
         # initialize input sum and output sum
+        input_sum = 0
+        output_sum = 0
         # use TxIn.value() to sum up the input amounts
+        for tx_in in self.tx_ins:
+            input_sum += tx_in.value()
         # use TxOut.amount to sum up the output amounts
+        for tx_out in self.tx_outs:
+            output_sum += tx_out.amount
         # fee is input sum - output sum
-        raise NotImplementedError
+        return input_sum - output_sum
 
 
 # tag::source2[]
@@ -165,11 +181,15 @@ class TxIn:
         return a TxIn object
         '''
         # prev_tx is 32 bytes, little endian
+        prev_tx = s.read(32)[::-1]
         # prev_index is an integer in 4 bytes, little endian
+        prev_index = little_endian_to_int(s.read(4))
         # use Script.parse to get the ScriptSig
+        scriptSig = Script.parse(s)
         # sequence is an integer in 4 bytes, little-endian
+        sequence = little_endian_to_int(s.read(4))
         # return an instance of the class (see __init__ for args)
-        raise NotImplementedError
+        return cls(prev_tx, prev_index, scriptSig, sequence)
 
     # tag::source5[]
     def serialize(self):
@@ -218,6 +238,11 @@ class TxOut:
         return a TxOut object
         '''
         # amount is an integer in 8 bytes, little endian
+        amount = little_endian_to_int(s.read(8))
+        # use Script.parse to get the ScriptSig
+        scriptPubkey = Script.parse(s)
+        # return an instance of the class (see __init__ for args)
+        return cls(amount, scriptPubkey)
         # use Script.parse to get the ScriptPubKey
         # return an instance of the class (see __init__ for args)
         raise NotImplementedError

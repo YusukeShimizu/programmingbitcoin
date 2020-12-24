@@ -126,13 +126,16 @@ def h160_to_p2sh_address(h160, testnet=False):
 def bits_to_target(bits):
     '''Turns bits into a target (large 256-bit integer)'''
     # last byte is exponent
+    exponent = bits[-1]
     # the first three bytes are the coefficient in little endian
+    coefficient = little_endian_to_int(bits[:-1])
     # the formula is:
     # coefficient * 256**(exponent-3)
-    raise NotImplementedError
-
+    return coefficient * 256**(exponent - 3)
 
 # tag::source1[]
+
+
 def target_to_bits(target):
     '''Turns a target integer back into bits'''
     raw_bytes = target.to_bytes(32, 'big')
